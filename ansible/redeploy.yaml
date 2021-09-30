@@ -1,0 +1,36 @@
+---
+# redeploy.yml
+
+- hosts: neo4j
+  user: alexwoolford
+  become: yes
+  vars:
+    remote_plugin_path: /var/lib/neo4j/plugins
+    project_root: /Users/alexwoolford/snowplow-neo4j-journey-chains
+    jar_filename: snowplow-neo4j-journey-chains-1.0-SNAPSHOT.jar
+
+  tasks:
+    - name: stop neo4j
+      service: name=neo4j
+        state=stopped
+
+    - name: delete remote jar
+      file:
+        path: "{{ remote_plugin_path }}/{{ jar_filename }}"
+        state: absent
+
+    - name: rebuild jar
+      local_action: command mvn clean package chdir={{ project_root }}
+      become: no
+
+    - name: copy jar to neo4j
+      copy:
+        src: "{{ project_root }}/target/{{ jar_filename }}"
+        dest: "{{ remote_plugin_path }}"
+        owner: neo4j
+        group: adm
+        force: yes
+
+    - name: start neo4j
+      service: name=neo4j
+        state=started
